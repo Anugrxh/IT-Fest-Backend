@@ -12,11 +12,12 @@ router.get('/:id', eventController.getEventById);
 
 // Protected: Create Event (Admin/Coordinator Only)
 router.post(
-  '/', 
-  authMiddleware.protect, 
+  '/',
+  authMiddleware.protect,
   authMiddleware.restrictTo('admin', 'coordinator'),
-  // upload.single('banner'), // Uncomment if using upload middleware
-  eventController.createEvent
+  uploadMiddleware.uploadEventBanner, // 1. Parse upload to memory
+  uploadMiddleware.resizeEventBanner, // 2. Resize & Save to disk
+  eventController.createEvent         // 3. Save info to Database
 );
 
 module.exports = router;
