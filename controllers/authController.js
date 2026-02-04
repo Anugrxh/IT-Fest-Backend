@@ -1,12 +1,7 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // You need to install bcryptjs
-const { User } = require('../models');
-
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '90d'
-  });
-};
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs"); // You need to install bcryptjs
+const { User } = require("../models");
+const { signToken } = require("../utils/jwt");
 
 exports.signup = async (req, res) => {
   try {
@@ -21,7 +16,7 @@ exports.signup = async (req, res) => {
       collegeId: req.body.collegeId,
       department: req.body.department,
       phone: req.body.phone,
-      role: 'student' // Default to student
+      role: "student", // Default to student
     });
 
     const token = signToken(newUser.id);
@@ -30,12 +25,12 @@ exports.signup = async (req, res) => {
     newUser.password = undefined;
 
     res.status(201).json({
-      status: 'success',
+      status: "success",
       token,
-      data: { user: newUser }
+      data: { user: newUser },
     });
   } catch (err) {
-    res.status(400).json({ status: 'fail', message: err.message });
+    res.status(400).json({ status: "fail", message: err.message });
   }
 };
 
@@ -45,7 +40,9 @@ exports.login = async (req, res) => {
 
     // 1. Check if email & password exist
     if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+      return res
+        .status(400)
+        .json({ message: "Please provide email and password" });
     }
 
     // 2. Check if user exists & password is correct
@@ -53,12 +50,12 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ where: { email } });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: 'Incorrect email or password' });
+      return res.status(401).json({ message: "Incorrect email or password" });
     }
 
     // 3. Send Token
     const token = signToken(user.id);
-    res.status(200).json({ status: 'success', token });
+    res.status(200).json({ status: "success", token });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

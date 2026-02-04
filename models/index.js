@@ -1,26 +1,37 @@
-const sequelize = require('../config/database');
-const User = require('./User');
-const Event = require('./Event');
-const Category = require('./Category'); // Import the new model
-const Registration = require('./Registration');
+const sequelize = require("../config/database");
+const User = require("./User");
+const Event = require("./Event")
+const Category = require("./Category"); // Import the new model
+const Registration = require("./Registration");
 
 // --- 1. Category <-> Event ---
 // One Category has many Events
-Category.hasMany(Event, { foreignKey: 'categoryId', as: 'events' });
+Category.hasMany(Event, { foreignKey: "categoryId", as: "events" });
 // An Event belongs to one Category
-Event.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+Event.belongsTo(Category, { foreignKey: "categoryId", as: "category" });
 
 // --- 2. User <-> Registration ---
-User.hasMany(Registration, { foreignKey: 'leaderId' });
-Registration.belongsTo(User, { as: 'Leader', foreignKey: 'leaderId' });
+User.hasMany(Registration, { foreignKey: "leaderId" });
+Registration.belongsTo(User, { as: "Leader", foreignKey: "leaderId" });
 
 // --- 3. Event <-> Registration ---
-Event.hasMany(Registration, { foreignKey: 'eventId' });
-Registration.belongsTo(Event, { foreignKey: 'eventId' });
+Event.hasMany(Registration, { foreignKey: "eventId" });
+Registration.belongsTo(Event, { foreignKey: "eventId" });
 
 // --- 4. Team Members ---
-Registration.belongsToMany(User, { through: 'RegistrationMembers', as: 'Members' });
-User.belongsToMany(Registration, { through: 'RegistrationMembers', as: 'TeamRegistrations' });
+Registration.belongsToMany(User, {
+  through: "RegistrationMembers", // Matches the actual DB table name
+  as: "Members",
+  foreignKey: "RegistrationId",
+  otherKey: "UserId",
+});
+
+User.belongsToMany(Registration, {
+  through: "RegistrationMembers",
+  as: "TeamRegistrations",
+  foreignKey: "UserId",
+  otherKey: "RegistrationId",
+});
 
 const db = { sequelize, User, Event, Category, Registration };
 module.exports = db;

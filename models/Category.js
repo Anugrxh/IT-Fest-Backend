@@ -10,7 +10,7 @@ const Category = sequelize.define('Category', {
   },
   description: { type: DataTypes.STRING }, // e.g. "Coding and Hardware events"
   slug: { type: DataTypes.STRING, unique: true }, // for frontend url: /events/technical
-  
+
   // Optional: Global rule for this category
   defaultTeamSizeLimit: { type: DataTypes.INTEGER, defaultValue: 1 } 
 }, {
