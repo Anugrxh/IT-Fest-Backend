@@ -6,6 +6,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
+const categoryRoutes = require("./routes/categoryRoutes")
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/events', eventRoutes);
 app.use('/api/v1/registrations', registrationRoutes);
 
