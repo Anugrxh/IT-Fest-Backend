@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(authMiddleware.protect);
 
 router.post('/', registrationController.registerForEvent);
+router.post('/verify-payment', registrationController.verifyPayment);
 router.get('/my-registrations', registrationController.getMyRegistrations);
 
 module.exports = router;

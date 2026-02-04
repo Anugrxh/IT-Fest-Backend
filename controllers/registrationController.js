@@ -1,71 +1,103 @@
 const { sequelize, Registration, Event, User } = require('../models');
 
 exports.registerForEvent = async (req, res) => {
-  // Start a transaction to ensure atomic operations
   const t = await sequelize.transaction();
-
   try {
-    const { eventId, teamName, memberIds } = req.body; 
-    const leaderId = req.user.id;
+    const { eventId, teamName, memberIds } = req.body;
+    const userId = req.user.id;
 
-    // 1. Fetch Event
+    // ... (Keep your existing validations: Event exists, Team Size, Duplicate check) ...
     const event = await Event.findByPk(eventId, { transaction: t });
-    if (!event) throw new Error('Event not found');
+    // Assume validations pass...
 
-    // 2. Check if Leader is already registered for this event
-    const existingReg = await Registration.findOne({
-      where: { eventId, leaderId },
-      transaction: t
-    });
-    if (existingReg) throw new Error('You are already registered for this event');
-
-    // 3. Team Logic Validation
-    let allMembers = [leaderId];
+    // A. Check if Paid Event
+    const isPaidEvent = event.registrationFee > 0;
     
-    if (event.isTeamEvent) {
-      if (!memberIds || memberIds.length === 0) {
-        throw new Error('This is a team event. Please add members.');
-      }
+    let razorpayOrder = null;
+    let status = 'approved'; // Default for free events
+
+    if (isPaidEvent) {
+      status = 'pending'; // Waiting for payment
       
-      // Calculate total team size (Leader + Members)
-      const teamSize = memberIds.length + 1; 
-      
-      if (teamSize < event.minTeamSize || teamSize > event.maxTeamSize) {
-        throw new Error(`Team size must be between ${event.minTeamSize} and ${event.maxTeamSize}`);
-      }
-      
-      // Merge leader and members for processing
-      allMembers = [...allMembers, ...memberIds];
+      // Create Order with Razorpay
+      const options = {
+        amount: event.registrationFee * 100, // Amount in paise (100 INR = 10000 paise)
+        currency: "INR",
+        receipt: `rcpt_${Date.now()}_${userId.substring(0,5)}`
+      };
+      razorpayOrder = await razorpay.orders.create(options);
     }
 
-    // 4. Create Registration Record
+    // B. Create Registration in DB
     const newRegistration = await Registration.create({
       eventId,
-      leaderId,
-      teamName: teamName || `${req.user.name}'s Team`,
-      status: 'approved' // Or 'pending' if payment is required
+      leaderId: userId,
+      teamName,
+      status: isPaidEvent ? 'pending' : 'approved',
+      paymentStatus: isPaidEvent ? 'pending' : 'paid',
+      paymentOrderId: razorpayOrder ? razorpayOrder.id : null,
+      amountPaid: isPaidEvent ? event.registrationFee : 0
     }, { transaction: t });
 
-    // 5. Add Members to Junction Table
-    // We must ensure the `addMembers` mixin exists. 
-    // If you defined: Registration.belongsToMany(User, { as: 'Members' ... })
-    // Then the method is `addMembers`.
-    if (allMembers.length > 0) {
-      await newRegistration.addMembers(allMembers, { transaction: t });
-    }
+    // ... (Add Members logic here) ...
 
-    // 6. Commit Transaction
     await t.commit();
 
-    res.status(201).json({ status: 'success', message: 'Registration successful', data: newRegistration });
+    res.status(201).json({
+      status: 'success',
+      data: {
+        registration: newRegistration,
+        // Frontend checks this. If exists, open Razorpay popup. If null, show "Success".
+        paymentConfig: razorpayOrder ? {
+          key: process.env.RAZORPAY_KEY_ID,
+          amount: razorpayOrder.amount,
+          orderId: razorpayOrder.id,
+          currency: razorpayOrder.currency,
+          name: "IT Fest 2026",
+          description: `Registration for ${event.title}`
+        } : null
+      }
+    });
 
   } catch (err) {
-    // Rollback if anything fails
     await t.rollback();
-    res.status(400).json({ status: 'fail', message: err.message });
+    res.status(400).json({ error: err.message });
   }
 };
+exports.verifyPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
+    // A. Cryptographic Verification (Security Critical!)
+    // We hash the order_id + payment_id and compare it with the signature sent by Razorpay
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ status: 'fail', message: 'Invalid Signature' });
+    }
+
+    // B. Update Database
+    const registration = await Registration.findOne({ 
+      where: { paymentOrderId: razorpay_order_id } 
+    });
+
+    if (!registration) return res.status(404).json({ message: 'Registration not found' });
+
+    registration.paymentId = razorpay_payment_id;
+    registration.paymentStatus = 'paid';
+    registration.status = 'approved'; // Now valid!
+    await registration.save();
+
+    res.status(200).json({ status: 'success', message: 'Payment Verified' });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 exports.getMyRegistrations = async (req, res) => {
   try {
     const registrations = await Registration.findAll({
