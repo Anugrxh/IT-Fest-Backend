@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String         @id @default(uuid())
+  name         String
+  email        String         @unique
+  password     String
+  college      String?
+  phone        String?
+  createdAt    DateTime       @default(now())
+  registrations Registration[]
+  payments     Payment[]
+}
+
+model Registration {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String        // matches your frontend JSON event IDs
+  eventName String
+  status    String   @default("pending")  // pending | confirmed | cancelled
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  payment   Payment?
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  userId          String
+  registrationId  String   @unique
+  amount          Float
+  currency        String   @default("INR")
+  status          String   @default("pending")  // pending | success | failed
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  createdAt       DateTime @default(now())
+  user            User         @relation(fields: [userId], references: [id])
+  registration    Registration @relation(fields: [registrationId], references: [id])
+}
