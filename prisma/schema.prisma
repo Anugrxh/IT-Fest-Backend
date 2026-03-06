@@ -4,41 +4,46 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-}
-
-model User {
-  id           String         @id @default(uuid())
-  name         String
-  email        String         @unique
-  password     String
-  college      String?
-  phone        String?
-  createdAt    DateTime       @default(now())
-  registrations Registration[]
-  payments     Payment[]
+   url      = env("DATABASE_URL")
 }
 
 model Registration {
-  id        String   @id @default(uuid())
-  userId    String
-  eventId   String        // matches your frontend JSON event IDs
-  eventName String
-  status    String   @default("pending")  // pending | confirmed | cancelled
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  payment   Payment?
+  id          String   @id @default(uuid())
+  eventId     String
+  eventName   String
+  isTeamEvent Boolean  @default(false)
+  teamName    String?
+  status      String   @default("pending") // pending | confirmed | cancelled
+  createdAt   DateTime @default(now())
+
+  participants Participant[]
+  payment      Payment?
+}
+
+model Participant {
+  id             String   @id @default(uuid())
+  registrationId String
+  isLeader       Boolean  @default(false)  // team leader or solo registrant
+  name           String
+  email          String
+  phone          String
+  college        String
+  food           String   // "veg" or "non-veg"
+  createdAt      DateTime @default(now())
+
+  registration Registration @relation(fields: [registrationId], references: [id])
 }
 
 model Payment {
-  id              String   @id @default(uuid())
-  userId          String
-  registrationId  String   @unique
-  amount          Float
-  currency        String   @default("INR")
-  status          String   @default("pending")  // pending | success | failed
-  razorpayOrderId String?
+  id                String   @id @default(uuid())
+  registrationId    String   @unique
+  amount            Float
+  currency          String   @default("INR")
+  status            String   @default("pending") // pending | success | failed
+  razorpayOrderId   String?
   razorpayPaymentId String?
-  createdAt       DateTime @default(now())
-  user            User         @relation(fields: [userId], references: [id])
-  registration    Registration @relation(fields: [registrationId], references: [id])
+  razorpaySignature String?
+  createdAt         DateTime @default(now())
+
+  registration Registration @relation(fields: [registrationId], references: [id])
 }
