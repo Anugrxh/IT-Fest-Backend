@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const razorpay = require('../config/razorpay');
 const prisma = require('../config/prisma');
+const { generateQRCode } = require('../utils/qrHelper');
 
 // Step 1: Create a Razorpay order
 router.post('/order', async (req, res) => {
@@ -86,7 +87,17 @@ router.post('/verify', async (req, res) => {
       });
     });
 
-    res.json({ message: 'Payment verified successfully', status: 'confirmed' });
+    // Generate QR after confirming payment
+    const registration = await prisma.registration.findUnique({
+      where: { id: registrationId },
+    });
+    const { qrDataURL } = await generateQRCode(registrationId, registration.eventId);
+
+    res.json({
+      message: 'Payment verified successfully',
+      status: 'confirmed',
+      qrCode: qrDataURL, // base64 PNG — frontend can display directly
+    });
 
   } catch (err) {
     console.error(err);

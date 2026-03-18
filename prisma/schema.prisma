@@ -8,17 +8,20 @@ datasource db {
 }
 
 model Registration {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   eventId     String
   eventName   String
-  isTeamEvent Boolean  @default(false)
+  isTeamEvent Boolean   @default(false)
   teamName    String?
-  status      String   @default("pending") // pending | confirmed | cancelled
-  createdAt   DateTime @default(now())
+  status      String    @default("pending")
+  checkedIn   Boolean   @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime  @default(now())
 
   participants Participant[]
   payment      Payment?
 }
+
 
 model Participant {
   id             String   @id @default(uuid())
