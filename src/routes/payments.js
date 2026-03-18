@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const razorpay = require('../config/razorpay');
 const prisma = require('../config/prisma');
 const { generateQRCode } = require('../utils/qrHelper');
+const { sendRegistrationEmail } = require('../utils/mailer');
 
 // Step 1: Create a Razorpay order
 router.post('/order', async (req, res) => {
@@ -87,11 +88,28 @@ router.post('/verify', async (req, res) => {
       });
     });
 
-    // Generate QR after confirming payment
-    const registration = await prisma.registration.findUnique({
+    // Fetch full registration with participants for QR + email
+    const fullRegistration = await prisma.registration.findUnique({
       where: { id: registrationId },
+      include: { participants: true },
     });
-    const { qrDataURL } = await generateQRCode(registrationId, registration.eventId);
+
+    const { qrDataURL } = await generateQRCode(registrationId, fullRegistration.eventId);
+
+    // Get leader/solo participant for email
+    const leader = fullRegistration.participants.find(p => p.isLeader)
+                ?? fullRegistration.participants[0];
+
+    // Fire-and-forget email
+    sendRegistrationEmail({
+      to: leader.email,
+      registrationId,
+      eventName: fullRegistration.eventName,
+      isTeamEvent: fullRegistration.isTeamEvent,
+      teamName: fullRegistration.teamName,
+      participants: fullRegistration.participants,
+      qrDataURL,
+    }).catch(err => console.error('Email failed:', err));
 
     res.json({
       message: 'Payment verified successfully',
