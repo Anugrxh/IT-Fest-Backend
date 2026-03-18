@@ -11,7 +11,7 @@ router.post('/', async (req, res) => {
     // Verify the QR token
     let decoded;
     try {
-      decoded = verifyQRToken(token);
+      decoded = verifyQRToken(token.trim());
     } catch {
       return res.status(400).json({ error: 'Invalid or expired QR code' });
     }
