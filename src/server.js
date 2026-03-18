@@ -6,7 +6,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', require('./routes/auth'));
+const prisma = require('./config/prisma');
+
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ status: 'error', db: 'unreachable', timestamp: new Date().toISOString() });
+  }
+});
+
+
 app.use('/api/registrations', require('./routes/registrations'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/checkin', require('./routes/checkin'));
