@@ -32,7 +32,8 @@
     "nodemailer": "^8.0.2",
     "prisma": "^6.19.2",
     "qrcode": "^1.5.4",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "resend": "^6.9.4"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",

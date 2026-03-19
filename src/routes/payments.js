@@ -100,7 +100,7 @@ router.post('/verify', async (req, res) => {
     const leader = fullRegistration.participants.find(p => p.isLeader)
                 ?? fullRegistration.participants[0];
 
-    // Fire-and-forget email
+    // Send email with better error logging
     sendRegistrationEmail({
       to: leader.email,
       registrationId,
@@ -109,7 +109,10 @@ router.post('/verify', async (req, res) => {
       teamName: fullRegistration.teamName,
       participants: fullRegistration.participants,
       qrDataURL,
-    }).catch(err => console.error('Email failed:', err));
+    }).catch(err => {
+      console.error('❌ Email failed:', err.message);
+      console.error('Full error:', err);
+    });
 
     res.json({
       message: 'Payment verified successfully',
