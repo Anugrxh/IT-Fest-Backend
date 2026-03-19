@@ -1,12 +1,6 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEvent, teamName, participants, qrDataURL }) {
   // Build participants table rows
@@ -29,7 +23,7 @@ async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEven
       
       <!-- Header -->
       <div style="background:#00af5a;padding:30px;text-align:center">
-        <h1 style="color:white;margin:0">${process.env.FEST_NAME}</h1>
+        <h1 style="color:white;margin:0">${process.env.FEST_NAME || 'Tech Fest'}</h1>
         <p style="color:white;margin:5px 0">Registration Confirmed! 🎉</p>
       </div>
 
@@ -80,7 +74,7 @@ async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEven
       <div style="background:#f5f5f5;padding:20px;text-align:center">
         <p style="color:#999;font-size:12px;margin:0">
           This is an automated email. Please do not reply.<br/>
-          ${process.env.FEST_NAME} • Your College Name
+          ${process.env.FEST_NAME || 'Tech Fest'}
         </p>
       </div>
 
@@ -89,23 +83,26 @@ async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEven
 
   // Convert base64 QR to buffer for attachment
   const base64Data = qrDataURL.includes(',') ? qrDataURL.split(',')[1] : qrDataURL;
-  const qrBuffer = Buffer.from(base64Data, 'base64');
 
-  await transporter.sendMail({
-    from: `"${process.env.FEST_NAME}" <${process.env.GMAIL_USER}>`,
-    to,
-    subject: `✅ Registration Confirmed - ${eventName} | ${process.env.FEST_NAME}`,
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || `${process.env.FEST_NAME || 'Tech Fest'} <onboarding@resend.dev>`,
+    to: [to],
+    subject: `✅ Registration Confirmed - ${eventName} | ${process.env.FEST_NAME || 'Tech Fest'}`,
     html: htmlContent,
     attachments: [
       {
         filename: `QR-${registrationId}.png`,
-        content: qrBuffer,
-        contentType: 'image/png',
+        content: base64Data,
       },
     ],
   });
 
-  console.log(`[mailer] ✅ Email sent to ${to} for registration ${registrationId}`);
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
+
+  console.log(`[mailer]  Email sent to ${to} for registration ${registrationId}`);
+  return data;
 }
 
 module.exports = { sendRegistrationEmail };

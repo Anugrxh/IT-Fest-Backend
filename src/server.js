@@ -21,6 +21,7 @@ app.get('/health', async (req, res) => {
 app.use('/api/registrations', require('./routes/registrations'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/checkin', require('./routes/checkin'));
+app.use('/api/test-email', require('./routes/test-email'));
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);
