@@ -60,7 +60,26 @@ router.get('/:id', async (req, res) => {
       include: { participants: true, payment: true },
     });
     if (!registration) return res.status(404).json({ error: 'Registration not found' });
-    res.json(registration);
+
+    // Strip sensitive payment internals and participant PII
+    res.json({
+      id: registration.id,
+      eventId: registration.eventId,
+      eventName: registration.eventName,
+      isTeamEvent: registration.isTeamEvent,
+      teamName: registration.teamName,
+      status: registration.status,
+      createdAt: registration.createdAt,
+      participants: registration.participants.map(p => ({
+        name: p.name,
+        college: p.college,
+        isLeader: p.isLeader,
+      })),
+      payment: registration.payment ? {
+        status: registration.payment.status,
+        amount: registration.payment.amount,
+      } : null,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Something went wrong' });
   }
