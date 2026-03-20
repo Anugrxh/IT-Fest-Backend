@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { Cashfree, CFEnvironment } = require('cashfree-pg');
 const prisma = require('../config/prisma');
+const { generateQRCode } = require('../utils/qrHelper');
+const { sendRegistrationEmail } = require('../utils/mailer');
 
-// Initialize Cashfree
+// Fix memory leak warning
+process.setMaxListeners(20);
+
+// Initialize Cashfree once
 Cashfree.XClientId = process.env.CASHFREE_APP_ID;
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
 Cashfree.XEnvironment = process.env.CASHFREE_ENV === 'PROD'
@@ -12,7 +17,7 @@ Cashfree.XEnvironment = process.env.CASHFREE_ENV === 'PROD'
 
 // POST /api/payments/order — Create Cashfree order
 router.post('/order', async (req, res) => {
-  const { registrationId, amount } = req.body; // amount in rupees
+  const { registrationId, amount } = req.body;
 
   try {
     const registration = await prisma.registration.findUnique({
@@ -31,10 +36,9 @@ router.post('/order', async (req, res) => {
     const leader = registration.participants.find(p => p.isLeader)
                    ?? registration.participants[0];
 
-    // Create Cashfree order
     const orderData = {
       order_id: `order_${registrationId.slice(0, 20)}_${Date.now()}`,
-      order_amount: amount, // in rupees directly (not paise like Razorpay)
+      order_amount: amount,
       order_currency: 'INR',
       customer_details: {
         customer_id: registrationId.slice(0, 36),
@@ -51,12 +55,11 @@ router.post('/order', async (req, res) => {
     const response = await Cashfree.PGCreateOrder('2023-08-01', orderData);
     const order = response.data;
 
-    // Save payment record
     await prisma.payment.upsert({
       where: { registrationId },
       update: {
         amount,
-        razorpayOrderId: order.order_id, // reusing field for cashfree order id
+        razorpayOrderId: order.order_id,
         status: 'pending',
       },
       create: {
@@ -69,7 +72,7 @@ router.post('/order', async (req, res) => {
 
     res.json({
       orderId: order.order_id,
-      orderToken: order.payment_session_id, // used by Cashfree JS SDK
+      orderToken: order.payment_session_id,
       amount: order.order_amount,
       currency: order.order_currency,
       appId: process.env.CASHFREE_APP_ID,
@@ -102,8 +105,6 @@ router.post('/verify', async (req, res) => {
     const payment = paymentsResponse.data?.[0];
 
     // Update DB atomically
-    const { generateQRCode } = require('../utils/qrHelper');
-
     await prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { registrationId },
@@ -127,8 +128,7 @@ router.post('/verify', async (req, res) => {
 
     const { qrDataURL } = await generateQRCode(registrationId, fullRegistration.eventId);
 
-    // Send email
-    const { sendRegistrationEmail } = require('../utils/mailer');
+    // Send email (fire and forget)
     const leader = fullRegistration.participants.find(p => p.isLeader)
                    ?? fullRegistration.participants[0];
 
