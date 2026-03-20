@@ -3,7 +3,11 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors([
+  'http://localhost:3000',
+  'https://zeitgeistkuc.in',
+  'https://it-fest-frontend.vercel.app/',
+]));
 app.use(express.json());
 
 const prisma = require('./config/prisma');
