@@ -163,7 +163,12 @@ router.get('/status/:registrationId', async (req, res) => {
 
     if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
-    res.json(payment);
+    // Only expose safe fields — never raw order/payment IDs or internal DB fields
+    res.json({
+      status: payment.status,
+      amount: payment.amount,
+      createdAt: payment.createdAt,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Something went wrong' });
   }

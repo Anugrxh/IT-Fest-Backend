@@ -41,7 +41,11 @@ router.post('/', async (req, res) => {
         registration: {
           eventName: registration.eventName,
           teamName: registration.teamName,
-          participants: registration.participants,
+          participants: registration.participants.map(p => ({
+            name: p.name,
+            college: p.college,
+            isLeader: p.isLeader,
+          })),
         },
       });
     }
@@ -62,7 +66,11 @@ router.post('/', async (req, res) => {
         eventName: registration.eventName,
         isTeamEvent: registration.isTeamEvent,
         teamName: registration.teamName,
-        participants: registration.participants,
+        participants: registration.participants.map(p => ({
+          name: p.name,
+          college: p.college,
+          isLeader: p.isLeader,
+        })),
       },
     });
 
@@ -88,7 +96,11 @@ router.get('/:registrationId', async (req, res) => {
       checkedIn: registration.checkedIn,
       checkedInAt: registration.checkedInAt,
       eventName: registration.eventName,
-      participants: registration.participants,
+      participants: registration.participants.map(p => ({
+        name: p.name,
+        college: p.college,
+        isLeader: p.isLeader,
+      })),
     });
 
   } catch (err) {
