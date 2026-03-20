@@ -1,20 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
-const razorpay = require('../config/razorpay');
+const { Cashfree, CFEnvironment } = require('cashfree-pg');
 const prisma = require('../config/prisma');
-const { generateQRCode } = require('../utils/qrHelper');
-const { sendRegistrationEmail } = require('../utils/mailer');
 
-// Step 1: Create a Razorpay order
+// Initialize Cashfree
+Cashfree.XClientId = process.env.CASHFREE_APP_ID;
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
+Cashfree.XEnvironment = process.env.CASHFREE_ENV === 'PROD'
+  ? CFEnvironment.PRODUCTION
+  : CFEnvironment.SANDBOX;
+
+// POST /api/payments/order — Create Cashfree order
 router.post('/order', async (req, res) => {
-  const { registrationId, amount } = req.body;
-  // amount should be in paise (e.g. ₹500 = 50000 paise)
+  const { registrationId, amount } = req.body; // amount in rupees
 
   try {
-    // Check registration exists
     const registration = await prisma.registration.findUnique({
       where: { id: registrationId },
+      include: { participants: true },
     });
 
     if (!registration) {
@@ -25,59 +28,87 @@ router.post('/order', async (req, res) => {
       return res.status(400).json({ error: 'Already paid for this registration' });
     }
 
-    // Create Razorpay order
-    const order = await razorpay.orders.create({
-      amount: amount, // in paise
-      currency: 'INR',
-      receipt: `rcpt_${registrationId.slice(0, 35)}`,
-    });
+    const leader = registration.participants.find(p => p.isLeader)
+                   ?? registration.participants[0];
 
-    // Save payment record in DB
-    await prisma.payment.create({
-      data: {
+    // Create Cashfree order
+    const orderData = {
+      order_id: `order_${registrationId.slice(0, 20)}_${Date.now()}`,
+      order_amount: amount, // in rupees directly (not paise like Razorpay)
+      order_currency: 'INR',
+      customer_details: {
+        customer_id: registrationId.slice(0, 36),
+        customer_name: leader.name,
+        customer_email: leader.email,
+        customer_phone: leader.phone,
+      },
+      order_meta: {
+        return_url: `${process.env.FRONTEND_URL}/payment-status?registration_id=${registrationId}`,
+      },
+      order_note: `${registration.eventName} Registration`,
+    };
+
+    const response = await Cashfree.PGCreateOrder('2023-08-01', orderData);
+    const order = response.data;
+
+    // Save payment record
+    await prisma.payment.upsert({
+      where: { registrationId },
+      update: {
+        amount,
+        razorpayOrderId: order.order_id, // reusing field for cashfree order id
+        status: 'pending',
+      },
+      create: {
         registrationId,
-        amount: amount / 100, // store in rupees
-        razorpayOrderId: order.id,
+        amount,
+        razorpayOrderId: order.order_id,
         status: 'pending',
       },
     });
 
     res.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID,
+      orderId: order.order_id,
+      orderToken: order.payment_session_id, // used by Cashfree JS SDK
+      amount: order.order_amount,
+      currency: order.order_currency,
+      appId: process.env.CASHFREE_APP_ID,
     });
 
   } catch (err) {
-    console.error(err);
+    console.error(err?.response?.data || err);
     res.status(500).json({ error: 'Failed to create order' });
   }
 });
 
-// Step 2: Verify payment after user pays
+// POST /api/payments/verify — Verify payment after user pays
 router.post('/verify', async (req, res) => {
-  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, registrationId } = req.body;
+  const { orderId, registrationId } = req.body;
 
   try {
-    // Verify signature
-    const body = razorpayOrderId + '|' + razorpayPaymentId;
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
-      .digest('hex');
+    // Fetch order status from Cashfree
+    const response = await Cashfree.PGFetchOrder('2023-08-01', orderId);
+    const order = response.data;
 
-    if (expectedSignature !== razorpaySignature) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
+    if (order.order_status !== 'PAID') {
+      return res.status(400).json({
+        error: 'Payment not completed',
+        status: order.order_status,
+      });
     }
 
-    // Update payment and registration atomically
+    // Get payment details
+    const paymentsResponse = await Cashfree.PGOrderFetchPayments('2023-08-01', orderId);
+    const payment = paymentsResponse.data?.[0];
+
+    // Update DB atomically
+    const { generateQRCode } = require('../utils/qrHelper');
+
     await prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: { registrationId },
         data: {
-          razorpayPaymentId,
-          razorpaySignature,
+          razorpayPaymentId: payment?.cf_payment_id?.toString(),
           status: 'success',
         },
       });
@@ -88,7 +119,7 @@ router.post('/verify', async (req, res) => {
       });
     });
 
-    // Fetch full registration with participants for QR + email
+    // Generate QR
     const fullRegistration = await prisma.registration.findUnique({
       where: { id: registrationId },
       include: { participants: true },
@@ -96,11 +127,11 @@ router.post('/verify', async (req, res) => {
 
     const { qrDataURL } = await generateQRCode(registrationId, fullRegistration.eventId);
 
-    // Get leader/solo participant for email
+    // Send email
+    const { sendRegistrationEmail } = require('../utils/mailer');
     const leader = fullRegistration.participants.find(p => p.isLeader)
-                ?? fullRegistration.participants[0];
+                   ?? fullRegistration.participants[0];
 
-    // Send email with better error logging
     sendRegistrationEmail({
       to: leader.email,
       registrationId,
@@ -109,24 +140,21 @@ router.post('/verify', async (req, res) => {
       teamName: fullRegistration.teamName,
       participants: fullRegistration.participants,
       qrDataURL,
-    }).catch(err => {
-      console.error('❌ Email failed:', err.message);
-      console.error('Full error:', err);
-    });
+    }).catch(err => console.error('Email failed:', err));
 
     res.json({
       message: 'Payment verified successfully',
       status: 'confirmed',
-      qrCode: qrDataURL, // base64 PNG — frontend can display directly
+      qrCode: qrDataURL,
     });
 
   } catch (err) {
-    console.error(err);
+    console.error(err?.response?.data || err);
     res.status(500).json({ error: 'Payment verification failed' });
   }
 });
 
-// Get payment status for a registration
+// GET /api/payments/status/:registrationId
 router.get('/status/:registrationId', async (req, res) => {
   try {
     const payment = await prisma.payment.findUnique({

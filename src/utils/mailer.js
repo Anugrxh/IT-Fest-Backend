@@ -10,7 +10,6 @@ async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEven
       <td style="padding:10px;border:1px solid #ddd">${p.email}</td>
       <td style="padding:10px;border:1px solid #ddd">${p.phone}</td>
       <td style="padding:10px;border:1px solid #ddd">${p.college}</td>
-      <td style="padding:10px;border:1px solid #ddd">${p.food === 'veg' ? '🥦 Veg' : '🍗 Non-Veg'}</td>
     </tr>
   `).join('');
 
@@ -47,7 +46,6 @@ async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEven
               <th style="padding:10px;text-align:left">Email</th>
               <th style="padding:10px;text-align:left">Phone</th>
               <th style="padding:10px;text-align:left">College</th>
-              <th style="padding:10px;text-align:left">Food</th>
             </tr>
           </thead>
           <tbody>
