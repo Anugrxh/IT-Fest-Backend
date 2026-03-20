@@ -3,80 +3,101 @@ const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEvent, teamName, participants, qrDataURL }) {
-  // Build participants table rows
-  const participantRows = participants.map((p, i) => `
-    <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#ffffff'}">
-      <td style="padding:10px;border:1px solid #ddd">${p.isLeader ? '👑 ' : ''}${p.name}</td>
-      <td style="padding:10px;border:1px solid #ddd">${p.email}</td>
-      <td style="padding:10px;border:1px solid #ddd">${p.phone}</td>
-      <td style="padding:10px;border:1px solid #ddd">${p.college}</td>
+  const participantRows = participants.map((p) => `
+    <tr>
+      <td style="padding:8px 10px;border:1px solid #e0e0e0">${p.isLeader ? '* ' : ''}${p.name}</td>
+      <td style="padding:8px 10px;border:1px solid #e0e0e0">${p.email}</td>
+      <td style="padding:8px 10px;border:1px solid #e0e0e0">${p.phone}</td>
+      <td style="padding:8px 10px;border:1px solid #e0e0e0">${p.college}</td>
     </tr>
   `).join('');
 
-  const teamSection = isTeamEvent ? `
-    <p style="font-size:16px"><strong>Team Name:</strong> ${teamName}</p>
-  ` : '';
-
   const htmlContent = `
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #ddd;border-radius:10px;overflow:hidden">
-      
-      <!-- Header -->
-      <div style="background:#00af5a;padding:30px;text-align:center">
-        <h1 style="color:white;margin:0">${process.env.FEST_NAME || 'Tech Fest'}</h1>
-        <p style="color:white;margin:5px 0">Registration Confirmed! 🎉</p>
-      </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+    </head>
+    <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;color:#222">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px 0">
+        <tr><td align="center">
+          <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border:1px solid #ddd">
 
-      <!-- Body -->
-      <div style="padding:30px">
-        <h2 style="color:#333">Hey ${participants.find(p => p.isLeader)?.name || participants[0].name}!</h2>
-        <p>Your registration for <strong>${eventName}</strong> is confirmed.</p>
-        
-        <div style="background:#f0fff8;border-left:4px solid #00af5a;padding:15px;margin:20px 0;border-radius:4px">
-          <p style="margin:0"><strong>Registration ID:</strong> ${registrationId}</p>
-          <p style="margin:5px 0"><strong>Event:</strong> ${eventName}</p>
-          ${teamSection}
-        </div>
-
-        <!-- Participants Table -->
-        <h3 style="color:#333">Participant Details</h3>
-        <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead>
-            <tr style="background:#00af5a;color:white">
-              <th style="padding:10px;text-align:left">Name</th>
-              <th style="padding:10px;text-align:left">Email</th>
-              <th style="padding:10px;text-align:left">Phone</th>
-              <th style="padding:10px;text-align:left">College</th>
+            <!-- Header -->
+            <tr>
+              <td style="padding:28px 30px;border-bottom:2px solid #222">
+                <p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#666">College IT Fest</p>
+                <h1 style="margin:6px 0 0;font-size:22px;letter-spacing:2px">ZEITGEIST 2026</h1>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            ${participantRows}
-          </tbody>
-        </table>
 
-        <!-- QR Section -->
-        <div style="text-align:center;margin:30px 0;background:#f0fff8;border:2px dashed #00af5a;border-radius:8px;padding:25px">
-          <h3 style="color:#333;margin-top:0">Your Entry QR Code</h3>
-          <p style="color:#666;font-size:14px;margin:0 0 12px">Your QR code is attached to this email as a PNG file.</p>
-          <div style="background:#00af5a;color:white;display:inline-block;padding:10px 24px;border-radius:4px;font-weight:bold;font-size:15px">
-            📎 See Attachment: QR-${registrationId}.png
-          </div>
-          <p style="color:#999;font-size:12px;margin:12px 0 0">Save it to your phone or print it. Show at the venue for check-in.</p>
-        </div>
+            <!-- Body -->
+            <tr>
+              <td style="padding:28px 30px">
+                <p style="margin:0 0 6px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:1px">Registration Confirmed</p>
+                <h2 style="margin:0 0 20px;font-size:18px">${eventName}</h2>
 
-        <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:15px;border-radius:4px">
-          <p style="margin:0;font-size:14px">⚠️ Please carry this QR code (printed or on your phone) to the event.</p>
-        </div>
-      </div>
+                <p style="margin:0 0 16px">Hello ${participants.find(p => p.isLeader)?.name || participants[0].name},</p>
+                <p style="margin:0 0 20px;color:#444">Your registration has been confirmed. Please find your details below.</p>
 
-      <!-- Footer -->
-      <div style="background:#f5f5f5;padding:20px;text-align:center">
-        <p style="color:#999;font-size:12px;margin:0">
-          This is an automated email. Please do not reply.<br/>
-          ${process.env.FEST_NAME || 'Tech Fest'}
-        </p>
-      </div>
+                <!-- Info block -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;margin-bottom:24px">
+                  <tr><td style="padding:14px 16px;border-bottom:1px solid #eee">
+                    <p style="margin:0;font-size:13px"><strong>Registration ID</strong></p>
+                    <p style="margin:4px 0 0;font-size:13px;color:#555;word-break:break-all">${registrationId}</p>
+                  </td></tr>
+                  <tr><td style="padding:14px 16px${isTeamEvent ? ';border-bottom:1px solid #eee' : ''}">
+                    <p style="margin:0;font-size:13px"><strong>Event</strong></p>
+                    <p style="margin:4px 0 0;font-size:13px;color:#555">${eventName}</p>
+                  </td></tr>
+                  ${isTeamEvent ? `<tr><td style="padding:14px 16px">
+                    <p style="margin:0;font-size:13px"><strong>Team Name</strong></p>
+                    <p style="margin:4px 0 0;font-size:13px;color:#555">${teamName}</p>
+                  </td></tr>` : ''}
+                </table>
 
-    </div>
+                <!-- Participants -->
+                <p style="margin:0 0 10px;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:1px">Participants</p>
+                <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;margin-bottom:8px">
+                  <thead>
+                    <tr style="background:#f5f5f5">
+                      <th style="padding:8px 10px;border:1px solid #e0e0e0;text-align:left;font-weight:bold">Name</th>
+                      <th style="padding:8px 10px;border:1px solid #e0e0e0;text-align:left;font-weight:bold">Email</th>
+                      <th style="padding:8px 10px;border:1px solid #e0e0e0;text-align:left;font-weight:bold">Phone</th>
+                      <th style="padding:8px 10px;border:1px solid #e0e0e0;text-align:left;font-weight:bold">College</th>
+                    </tr>
+                  </thead>
+                  <tbody>${participantRows}</tbody>
+                </table>
+                ${isTeamEvent ? '<p style="margin:0 0 24px;font-size:11px;color:#888">* Team Leader</p>' : '<p style="margin:0 0 24px"></p>'}
+
+                <!-- QR -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;margin-bottom:24px">
+                  <tr><td style="padding:20px;text-align:center">
+                    <p style="margin:0 0 6px;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:1px">Your Entry QR Code</p>
+                    <p style="margin:0 0 12px;font-size:13px;color:#555">Your QR code is attached to this email as a PNG file.</p>
+                    <p style="margin:0;font-size:13px;font-weight:bold">Attachment: QR-${registrationId}.png</p>
+                    <p style="margin:8px 0 0;font-size:12px;color:#888">Save it to your phone or print it. Show at the venue for check-in.</p>
+                  </td></tr>
+                </table>
+
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:18px 30px;border-top:1px solid #ddd;text-align:center">
+                <p style="margin:0;font-size:11px;color:#999">This is an automated email. Please do not reply.</p>
+                <p style="margin:4px 0 0;font-size:11px;color:#999">ZEITGEIST 2026</p>
+              </td>
+            </tr>
+
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
   `;
 
   // Convert base64 QR to buffer for attachment
