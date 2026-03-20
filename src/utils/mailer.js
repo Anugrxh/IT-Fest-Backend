@@ -106,7 +106,7 @@ async function sendRegistrationEmail({ to, registrationId, eventName, isTeamEven
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || `${process.env.FEST_NAME || 'Tech Fest'} <onboarding@resend.dev>`,
     to: [to],
-    subject: `✅ Registration Confirmed - ${eventName} | ${process.env.FEST_NAME || 'Tech Fest'}`,
+    subject: `Registration Confirmed - ${eventName} | ${process.env.FEST_NAME || 'Tech Fest'}`,
     html: htmlContent,
     attachments: [
       {
